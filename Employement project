@@ -1,91 +1,90 @@
-package com.example.employeemanagement;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class EmployeeManagementApplication {
-
-    public static void main(String[] args) {
-        SpringApplication.run(EmployeeManagementApplication.class, args);
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.authorizeRequests()
+            .antMatchers("/api/employees").hasRole("ADMIN")
+            .anyRequest().authenticated()
+            .and()
+            .formLogin();
     }
 }
-package com.example.employeemanagement.model;
-
-import lombok.Data;
-
-@Data
-public class User {
-
+@Entity
+public class Employee {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String username;
-    private String password;
-    private String name;
-    private String email;
+
+    private String firstName;
+    private String lastName;
 }
-
-package com.example.employeemanagement.repository;
-
-import com.example.employeemanagement.model.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface UserRepository extends JpaRepository<User, Long> {
-
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 }
-
-package com.example.employeemanagement.controller;
-
-import com.example.employeemanagement.model.User;
-import com.example.employeemanagement.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org  .springframework.web.bind.annotation.*;
-
 @RestController
-@RequestMapping("/api/users")
-public class UserController {
+@RequestMapping("/api/employees")
+public class EmployeeController {
+    private final EmployeeRepository employeeRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @GetMapping()
-    public Iterable<User> getAllUsers() {
-        return userRepository.findAll();
+    public EmployeeController(EmployeeRepository employeeRepository) {
+        this.employeeRepository = employeeRepository;
     }
 
-    @PostMapping()
-    public User createUser(@RequestBody User user) {
-        return userRepository.save(user);
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        return employeeRepository.save(employee);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Employee> getEmployeeById(@PathVariable Long id) {
+        Optional<Employee> employee = employeeRepository.findById(id);
+        return employee.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Employee> updateEmployee(@PathVariable Long id, @RequestBody Employee updatedEmployee) {
+        Optional<Employee> employeeOptional = employeeRepository.findById(id);
+        if (employeeOptional.isPresent()) {
+            Employee employee = employeeOptional.get();
+            employee.setFirstName(updatedEmployee.getFirstName());
+            employee.setLastName(updatedEmployee.getLastName());
+            employeeRepository.save(employee);
+            return ResponseEntity.ok(employee);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
-    public void deleteUser(@PathVariable Long id) {
-        userRepository.deleteById(id);
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
+        employeeRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
-package com.example.employeemanagement.test;
-
-import com.example.employeemanagement.model.User;
-import com.example.employeemanagement.repository.UserRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
+@RunWith(SpringRunner.class)
 @SpringBootTest
-public class EmployeeManagementApplicationTests {
+@AutoConfigureMockMvc
+public class EmployeeControllerTest {
 
     @Autowired
-    private UserRepository userRepository;
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
     @Test
-    public void testCreateUser() {
-        User user = new User();
-        user.setUsername("bar");
-        user.setPassword("password");
-        user.setName("Bar");
-        user.setEmail("bar@example.com");
+    public void testCreateEmployee() throws Exception {
+        Employee employee = new Employee();
+        employee.setFirstName("Rohit");
+        employee.setLastName("Kumar");
 
-        userRepository.save(user);
-
-        assertThat(userRepository.findById(user.getId()).get().getUsername()).isEqualTo("bar");
+        mockMvc.perform(post("/api/employees")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(employee)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").exists());
     }
 }
