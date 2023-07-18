@@ -1,0 +1,91 @@
+package com.example.employeemanagement;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class EmployeeManagementApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(EmployeeManagementApplication.class, args);
+    }
+}
+package com.example.employeemanagement.model;
+
+import lombok.Data;
+
+@Data
+public class User {
+
+    private Long id;
+    private String username;
+    private String password;
+    private String name;
+    private String email;
+}
+
+package com.example.employeemanagement.repository;
+
+import com.example.employeemanagement.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+}
+
+package com.example.employeemanagement.controller;
+
+import com.example.employeemanagement.model.User;
+import com.example.employeemanagement.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org  .springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @GetMapping()
+    public Iterable<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    @PostMapping()
+    public User createUser(@RequestBody User user) {
+        return userRepository.save(user);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userRepository.deleteById(id);
+    }
+}
+package com.example.employeemanagement.test;
+
+import com.example.employeemanagement.model.User;
+import com.example.employeemanagement.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class EmployeeManagementApplicationTests {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    public void testCreateUser() {
+        User user = new User();
+        user.setUsername("bar");
+        user.setPassword("password");
+        user.setName("Bar");
+        user.setEmail("bar@example.com");
+
+        userRepository.save(user);
+
+        assertThat(userRepository.findById(user.getId()).get().getUsername()).isEqualTo("bar");
+    }
+}
